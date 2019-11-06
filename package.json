@@ -1,0 +1,13 @@
+{
+  "name": "lbnbot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Johnni Dybdahl Mortensen",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^11.5.1"
+  },
+  "scripts": {
+    "dev": "node index.js"
+  }
+}
