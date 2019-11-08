@@ -2,8 +2,11 @@ const Discord = require('discord.js');
 const https = require('https');
 const client = new Discord.Client();
 const auth = require('./auth.json');
+//const db =  require('./db');
 
 const demoAPI = "https://lamersbynight.dk/demo/api.php";
+
+let testid = "";
 
 
 
@@ -11,10 +14,27 @@ client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
 });
 
+client.on('messageReactionAdd', (reaction, user) => {
+    if (reaction.message.id == testid) {
+        console.log(reaction.emoji);
+        reaction.message.channel.send(reaction.emoji.name);
+    }
+});
+
 client.on('message', msg => {
+
+    if (msg.channel.name === "johnnicodes") {
+        if (msg.content == '!setup') {
+            msg.channel.send("React to me :D").then(m => {
+                console.log(m.id);
+                testid = m.id;
+                
+            });
+
+        }
+    }
     if (msg.content === '!ping') {
         msg.reply('pong');
-        console.log(msg.channel.name);
     }
 
     if (msg.content === '!demo') {

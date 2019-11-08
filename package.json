@@ -5,9 +5,14 @@
   "author": "Johnni Dybdahl Mortensen",
   "license": "MIT",
   "dependencies": {
-    "discord.js": "^11.5.1"
+    "discord.js": "^11.5.1",
+    "nedb": "^1.8.0"
   },
   "scripts": {
-    "dev": "node index.js"
+    "dev": "nodemon index.js",
+    "devdb": "nodemon db.js"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.4"
   }
 }
