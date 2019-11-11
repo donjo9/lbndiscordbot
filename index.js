@@ -2,65 +2,162 @@ const Discord = require("discord.js");
 const https = require("https");
 const client = new Discord.Client();
 const auth = require("./auth.json");
-//const db =  require('./db');
+const { stripIndents } = require('common-tags');
+var Datastore = require('nedb');
+const settingsDb = new Datastore({ filename: './settings.db', autoload: true });
+const emotionsDb = new Datastore({ filename: './emotions.db', autoload: true });
+
+const addEmotion = (emoji, role) => {
+    emotionsDb.update({ emoji: emoji }, { emoji: emoji, role: role }, { upsert: true }, (err, newDOc) => {
+        console.log("New doc: ", newDOc);
+    })
+}
 
 const demoAPI = "https://lamersbynight.dk/demo/api.php";
 
-let testid = "642381656119836702";
+let msgid = "";
 const testROle = "642314842685833226";
 
-client.on("ready", () => {
+client.on("ready", async () => {
     console.log(`Logged in as ${client.user.tag}!`);
-    const johnnicodes = client.channels.find(x => x.id == "642308788031979550");
-    johnnicodes
-        .fetchMessage(testid)
-        .then(message => {
-            message.reactions.forEach(x => x.fetchUsers());
-            console.log("fetched: " + message.id);
-            message.edit("React to me :D");
-        })
-        .catch(console.error);
+    try {
+        settingsDb.findOne({ setupDone: true }, (err, settings) => {
+            if (settings) {
+                msgid = settings.msgId;
+                console.log(settings);
+                const johnnicodes = client.channels.find(x => x.id == settings.channelId);
+                johnnicodes
+                    .fetchMessage(settings.msgId)
+                    .then(message => {
+                        message.reactions.forEach(async x => {
+                            await x.fetchUsers();
+                        });
+                        console.log("fetched: " + message.id);
+                        message.edit(settings.msgText);
+                    })
+                    .catch(console.error);
+            }
+        });
+
+    } catch (e) {
+        console.warn(e);
+    }
 });
 
 client.on("messageReactionAdd", (reaction, user) => {
-    console.log(reaction.message.id);
-    if (reaction.message.id == testid) {
-        console.log(reaction.emoji.toString());
-        if (reaction.emoji.toString() == "<:Morten420:570207250136956929>") {
-            console.log("642314842685833226");
-            const member = reaction.message.guild.members.find(x => {
-                return user.id == x.id;
-            });
-            if (member) {
-                member.addRole(testROle);
+    if (user.bot) {
+        return;
+    }
+    if (reaction.message.id == msgid) {
+        emotionsDb.findOne({ emoji: reaction.emoji.toString() }, (err, doc) => {
+            if (doc) {
+                const member = reaction.message.guild.members.find(x => {
+                    return user.id == x.id;
+                });
+                if (member) {
+                    member.addRole(doc.role);
+                }
             }
-        }
+        })
     }
 });
 
 client.on("messageReactionRemove", (reaction, user) => {
-    console.log(reaction.message.id);
-    if (reaction.message.id == testid) {
-        console.log(reaction.emoji.toString());
-        if (reaction.emoji.toString() == "<:Morten420:570207250136956929>") {
-            console.log("642314842685833226");
-            const member = reaction.message.guild.members.find(x => {
-                return user.id == x.id;
-            });
-            if (member) {
-                member.removeRole(testROle);
+    if (user.bot) {
+        return;
+    }
+    if (reaction.message.id == msgid) {
+        emotionsDb.findOne({ emoji: reaction.emoji.toString() }, (err, doc) => {
+            if (doc) {
+                const member = reaction.message.guild.members.find(x => {
+                    return user.id == x.id;
+                });
+                if (member) {
+                    member.removeRole(doc.role);
+                }
             }
-        }
+        })
     }
 });
 
-client.on("message", msg => {
+
+client.on("message", async msg => {
     if (msg.channel.name === "johnnicodes") {
         if (msg.content == "!setup") {
-            msg.channel.send("React to me :D").then(m => {
-                console.log(m.id);
-                testid = m.id;
-            });
+            const setupStarter = msg.author;
+            const msgFilter = respons => {
+                return respons.author === setupStarter
+            }
+            const reactionFilter = (reaction, user) => {
+                console.log(user.id, setupStarter.id);
+                console.log(setupStarter.id == user.id);
+                return setupStarter.id == user.id;
+            };
+            let tempMessages = [msg];
+            try {
+                tempMessages.push(await msg.channel.send(stripIndents`
+                Hello ${msg.author}
+                Lets set me up :D
+                Please enter the title of your first emition :)
+                `));
+
+
+                const m = await msg.channel.awaitMessages(msgFilter, { maxMatches: 1, time: 30000, errors: ['time'] });
+
+                const title = m.first();
+
+                tempMessages.push(title);
+
+                const emojiMsg = await msg.channel.send(stripIndents`
+                Now lets associate an emoji
+                React to this message with the emoji
+                `)
+                tempMessages.push(emojiMsg);
+
+                const e = await emojiMsg.awaitReactions(reactionFilter, { max: 1, time: 30000, errors: ['time'] });
+                console.log(e);
+                const reactedEmoji = e.first();
+
+                const availableRoles = msg.channel.guild.roles.map(x => {
+                    return { "name": x.name, "id": x.id }
+                })
+
+                tempMessages.push(await msg.channel.send(availableRoles.filter(x => x.name != "@everyone").map(x => x.name)));
+
+                tempMessages.push(await msg.channel.send(stripIndents`
+                Now reply with the role you want to associate`));
+                let selectedRole = "";
+                const roleFilter = respons => {
+                    return availableRoles.some(x => {
+                        if (respons.content.toLowerCase() == x.name.toLowerCase()) {
+                            selectedRole = x.id;
+                            return true;
+                        }
+                        return false;
+                    })
+                }
+                const r = await msg.channel.awaitMessages(roleFilter, { maxMatches: 1, time: 30000, errors: ['time'] });
+
+                const finaleMessage = await msg.channel.send(`${reactedEmoji.emoji.toString()} = ${title.content}`);
+                // - Role: ${msg.channel.guild.roles.find(x => x.id === selectedRole).name}
+
+                finaleMessage.react(reactedEmoji.emoji);
+                tempMessages.forEach(x => {
+                    msg.channel.fetchMessage(x.id).then(async x => {
+                        console.log(x.content)
+                        await x.delete();
+                    })
+                });
+                msgid = finaleMessage.id;
+                settingsDb.update({ setupDone: true }, { $set: { msgId: finaleMessage.id, msgText: finaleMessage.content } }, {}, (err, numAffected, affectedDocuments, upsert) => {
+                    console.log(affectedDocuments);
+                });
+                addEmotion(reactedEmoji.emoji.toString(), selectedRole);
+            } catch (e) {
+                console.log(e);
+            }
+
+
         }
     }
     if (msg.content === "!ping") {
