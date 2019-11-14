@@ -177,7 +177,7 @@ client.on("message", async msg => {
                     let respons = "";
                     body.forEach(element => {
                         respons +=
-                            "https://lamersbynight.dk/demo/" + element + "\n";
+                            "https://demo.lamersbynight.dk/" + element + "\n";
                     });
                     msg.channel.send(respons);
                 });
