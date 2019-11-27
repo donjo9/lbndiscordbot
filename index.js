@@ -229,7 +229,7 @@ client.on("message", async msg => {
   }
 
   if (msg.content === "!demo") {
-    if (msg.channel.name === "liga") {
+    if (msg.channel.name === "liga" || msg.channel.name === "demos") {
       https.get(demoAPI, res => {
         res.setEncoding("utf8");
         let body = "";
