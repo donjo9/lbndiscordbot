@@ -307,7 +307,7 @@ client.on("message", async msg => {
   }
 
   if (msg.content === "!demo") {
-    if (msg.channel.name === "liga" || msg.channel.name === "demos") {
+    if (msg.channel.name === "liga" || msg.channel.name === "demo") {
       https.get(demoAPI, res => {
         res.setEncoding("utf8");
         let body = "";
