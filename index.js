@@ -62,7 +62,7 @@ const updateMessages = async () => {
       homeChannel
         .fetchMessage(msgid)
         .then(message => {
-
+          message.reactions.forEach(reaction => reaction.fetchUsers());
           message.edit(messages);
           emojis.forEach(id => message.react(id));
         })
