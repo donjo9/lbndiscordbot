@@ -2,3 +2,5 @@ node_modules/
 auth.json
 emoji.json
 settings.json
+demo/
+demo.json

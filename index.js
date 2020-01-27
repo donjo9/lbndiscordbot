@@ -2,6 +2,7 @@ const Discord = require("discord.js");
 const https = require("https");
 const client = new Discord.Client();
 const auth = require("./auth.json");
+const demoinfo = require("./demo.json");
 const { stripIndents } = require("common-tags");
 
 const addEmotion = (emoji, id, role, title) => {
@@ -17,22 +18,12 @@ const emojiadapter = new FileSync("emoji.json");
 const settingsdb = low(settingsadapter);
 const emojisdb = low(emojiadapter);
 
-const demoAPI = "https://demo.lamersbynight.dk/api.php";
 
 let msgid = "";
 
 const home = "643338484488339467";
 const testROle = "642314842685833226";
 
-/*
-const emtest = emojisdb.read().value();
-
-for (let key in emtest) {
-  if (emtest.hasOwnProperty(key)) {
-    console.log(`${key} : ${emtest[key].role} - ${emtest[key].title}`)
-  }
-}
-*/
 
 const adminrole = "481511947481645058";
 
@@ -78,9 +69,10 @@ const updateMessages = async () => {
 
   }
 }
-
+let LbNServer = null;
 client.on("ready", async () => {
   console.log(`Logged in as ${client.user.tag}!`);
+  LbNServer = client.guilds.find(g => g.id === "357044769446166529")
   try {
     updateMessages();
   } catch (e) {
@@ -146,44 +138,7 @@ client.on("message", async msg => {
   if (msg.channel.name === "johnnicodes") {
     if (msg.content == "!test-bot") {
 
-
-      /*
-            const msgEmojis = emojisdb.read().value();
-            let messages = [];
-            if (settingsdb.has("welcome").value()) {
-              messages.push(settingsdb.get("welcome").value())
-            }
-            let emojis = [];
-            for (let key in msgEmojis) {
-              if (msgEmojis.hasOwnProperty(key)) {
-                messages.push(`${key} ${msgEmojis[key].title}`);
-                if (msgEmojis[key].id) {
-                  emojis.push(msgEmojis[key].id);
-                } else {
-                  emojis.push(key);
-                }
-              }
-            }
-            const newMsg = await msg.channel.send(messages);
-            msgid = newMsg.id;
-            settingsdb.set("homemsg", msgid).write();
-            emojis.forEach(id => newMsg.react(id));
-      */
-      /*    const reactionFilter = (reaction, user) => {
-            if (user.bot) {
-              return false;
-            }
-             msg.channel.send(reaction.emoji.toString());
-             console.log(reaction.emoji.toString());
-             console.log(reaction.emoji.id);
-             console.log(reaction.emoji.identifier);
-             msg.react(reaction.emoji.identifier);
-             return msg.author.id == user.id;
-           }
-           const e = await msg.awaitReactions(reactionFilter, {
-             time: 30000
-           });
-    */
+   
     } else if (msg.content == "!set-welcome") {
       const setupStarter = msg.author;
       const msgFilter = respons => {
@@ -308,23 +263,63 @@ client.on("message", async msg => {
 
   if (msg.content === "!demo") {
     if (msg.channel.name === "liga" || msg.channel.name === "demo") {
-      https.get(demoAPI, res => {
-        res.setEncoding("utf8");
-        let body = "";
-        res.on("data", data => {
-          body += data;
-        });
-        res.on("end", () => {
-          body = JSON.parse(body);
-          let respons = "";
-          body.forEach(element => {
-            respons += "https://demo.lamersbynight.dk/" + element + "\n";
-          });
-          msg.channel.send(respons);
-        });
-      });
+      postDemos(msg.channel)
     }
   }
 });
 
 client.login(auth.token);
+
+const express = require('express')
+const app = express()
+const port = 3000
+const fs = require('fs')
+const path = require('path')
+
+const dir = path.join(__dirname, '/demo')
+
+
+const getDemos = async dir => {
+    //let demos = [];
+    try {
+      const demos = await fs.promises.readdir(dir)
+      return demos.sort((a, b) => {
+        if (a > b) {
+            return -1;
+        }
+        if (a < b) {
+            return 1;
+        }
+        return 0;
+    });
+    }catch (e){
+      console.warn(e);
+    }
+};
+
+const postDemos = async (channel) => {
+  
+  const demos = await getDemos(demoinfo.demodir);
+
+  const demoReducer = (string, element) => {
+    return string += "https://demo.lbn.gg/" + element + "\n";
+  }
+  const originDemos = demos.filter(x => x.match(/Origin/g)).reduce(demoReducer,"");
+  const legendsDemos = demos.filter(x => x.match(/Legends/g)).reduce(demoReducer,"");
+
+  channel.send("Origins:\n" + originDemos);
+  channel.send("Legends:\n" + legendsDemos);
+}
+
+app.get('/', async (req, res) => {
+    const demos = await getDemos(dir);
+    res.send(JSON.stringify(demos));
+})
+
+app.post('/updateDemos', async (req, res) => {
+  const DemoChannel = LbNServer.channels.find(c => c.id === demoinfo.channelid);
+  postDemos(DemoChannel);
+  res.send("");
+})
+app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+                                                                             
